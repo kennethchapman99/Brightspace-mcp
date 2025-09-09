@@ -195,6 +195,63 @@ async def bs_get_content_toc(org_unit_id: int) -> Dict[str, Any]:
     return await bs.get_content_toc(org_unit_id)
 
 
+# ---------------------- Discussions ----------------------
+
+@mcp.tool(name="bs.list_discussion_forums", description="List discussion forums. Args: org_unit_id.")
+async def bs_list_discussion_forums(org_unit_id: int) -> Dict[str, Any]:
+    return await bs.list_discussion_forums(org_unit_id)
+
+
+@mcp.tool(name="bs.list_discussion_topics", description="List discussion topics. Args: org_unit_id.")
+async def bs_list_discussion_topics(org_unit_id: int) -> Dict[str, Any]:
+    return await bs.list_discussion_topics(org_unit_id)
+
+
+# ---------------------- Quizzes ----------------------
+
+@mcp.tool(
+    name="bs.list_quizzes",
+    description="List quizzes. Args: org_unit_id, page_size=100, bookmark.",
+)
+async def bs_list_quizzes(org_unit_id: int, page_size: int = 100, bookmark: str | None = None) -> Dict[str, Any]:
+    return await bs.list_quizzes(org_unit_id, page_size=page_size, bookmark=bookmark)
+
+
+@mcp.tool(name="bs.get_quiz", description="Get quiz by ID. Args: org_unit_id, quiz_id.")
+async def bs_get_quiz(org_unit_id: int, quiz_id: int) -> Dict[str, Any]:
+    return await bs.get_quiz(org_unit_id, quiz_id)
+
+
+# ---------------------- Content Files ----------------------
+
+@mcp.tool(name="bs.get_content_topic", description="Get content topic metadata. Args: org_unit_id, topic_id.")
+async def bs_get_content_topic(org_unit_id: int, topic_id: int) -> Dict[str, Any]:
+    return await bs.get_content_topic(org_unit_id, topic_id)
+
+
+@mcp.tool(
+    name="bs.download_content_topic_file_b64",
+    description="Download content topic file as base64. Args: org_unit_id, topic_id.",
+)
+async def bs_download_content_topic_file_b64(org_unit_id: int, topic_id: int) -> Dict[str, Any]:
+    return await bs.download_content_topic_file_b64(org_unit_id, topic_id)
+
+
+# ---------------------- Grades ----------------------
+
+@mcp.tool(name="bs.list_grade_items", description="List grade items for a course. Args: org_unit_id.")
+async def bs_list_grade_items(org_unit_id: int) -> Dict[str, Any]:
+    return await bs.list_grade_items(org_unit_id)
+
+
+@mcp.tool(
+    name="bs.get_user_grades",
+    description="Get a user's grade values for a course. Args: org_unit_id, user_id.",
+)
+async def bs_get_user_grades(org_unit_id: int, user_id: int) -> Dict[str, Any]:
+    return await bs.get_user_grades(org_unit_id, user_id)
+
+
 def cli() -> None:
     # FastMCP defaults to stdio. Blocking until the client disconnects.
     mcp.run()

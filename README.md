@@ -19,6 +19,10 @@ through the MCP protocol.
   - `bs.list_announcements` – List news items in a course.
   - `bs.list_users` – Search and paginate through users.
   - `bs.create_announcement` – Post news items in a course.
+  - `bs.list_discussion_forums` / `bs.list_discussion_topics` – Browse discussions.
+  - `bs.list_quizzes` / `bs.get_quiz` – List and fetch quizzes.
+  - `bs.get_content_topic` / `bs.download_content_topic_file_b64` – Inspect or download content topic files.
+  - `bs.list_grade_items` / `bs.get_user_grades` – Grade items and user grade values.
 - Includes a generic `bs.request` tool for arbitrary HTTP requests against
   any Brightspace endpoint.
 
@@ -142,12 +146,35 @@ single object with a `tool` field and an `arguments` field:
 { "tool": "bs.list_announcements", "arguments": { "org_unit_id": 12345, "page_size": 20 } }
 
 { "tool": "bs.get_content_toc", "arguments": { "org_unit_id": 12345 } }
+
+{ "tool": "bs.list_discussion_forums", "arguments": { "org_unit_id": 12345 } }
+
+{ "tool": "bs.list_discussion_topics", "arguments": { "org_unit_id": 12345 } }
+
+{ "tool": "bs.list_quizzes", "arguments": { "org_unit_id": 12345, "page_size": 50 } }
+
+{ "tool": "bs.get_quiz", "arguments": { "org_unit_id": 12345, "quiz_id": 6789 } }
+
+{ "tool": "bs.get_content_topic", "arguments": { "org_unit_id": 12345, "topic_id": 555 } }
+
+{ "tool": "bs.download_content_topic_file_b64", "arguments": { "org_unit_id": 12345, "topic_id": 555 } }
+
+{ "tool": "bs.list_grade_items", "arguments": { "org_unit_id": 12345 } }
+
+{ "tool": "bs.get_user_grades", "arguments": { "org_unit_id": 12345, "user_id": 111 } }
 ```
 
 If you need a wrapper around additional endpoints, such as grade or
 content operations, consider adding more convenience methods to
 `brightspace_mcp.brightspace.BrightspaceClient` and corresponding tools
 in `brightspace_mcp.main`.
+
+Notes on API Versions
+
+Some LE endpoints (grades, discussions, quizzes, content) vary slightly by
+API version. If a wrapper returns an error for your tenant/version, use
+`bs.request` with an explicit path built via `bs.build_path('le', tail, version)`
+to target the exact route supported by your instance.
 Brightspace MCP Reference Architecture
 Brightspace MCP Reference Architecture
 

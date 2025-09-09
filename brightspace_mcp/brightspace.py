@@ -326,3 +326,64 @@ class BrightspaceClient:
             raise RuntimeError(f"get_content_toc failed: {code} {data}")
         assert isinstance(data, dict)
         return data
+
+    # ---------- discussions ----------
+
+    async def list_discussion_forums(self, org_unit_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/discussions/forums/"))
+        if code >= 400:
+            raise RuntimeError(f"list_discussion_forums failed: {code} {data}")
+        assert isinstance(data, (list, dict))
+        return data  # API may return list
+
+    async def list_discussion_topics(self, org_unit_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/discussions/topics/"))
+        if code >= 400:
+            raise RuntimeError(f"list_discussion_topics failed: {code} {data}")
+        assert isinstance(data, (list, dict))
+        return data
+
+    # ---------- quizzes ----------
+
+    async def list_quizzes(self, org_unit_id: int, page_size: int = 100, bookmark: Optional[str] = None) -> Dict[str, Any]:
+        params: Dict[str, Any] = {"pageSize": page_size}
+        if bookmark:
+            params["bookmark"] = bookmark
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/quizzes/quizzes/"), params=params)
+        if code >= 400:
+            raise RuntimeError(f"list_quizzes failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def get_quiz(self, org_unit_id: int, quiz_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/quizzes/quizzes/{quiz_id}"))
+        if code >= 400:
+            raise RuntimeError(f"get_quiz failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    # ---------- content topic files ----------
+
+    async def get_content_topic(self, org_unit_id: int, topic_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/content/topics/{topic_id}"))
+        if code >= 400:
+            raise RuntimeError(f"get_content_topic failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def download_content_topic_file_b64(self, org_unit_id: int, topic_id: int) -> Dict[str, Any]:
+        return await self.download_bytes_b64(self.build_path("le", f"/{org_unit_id}/content/topics/{topic_id}/file"))
+
+    # ---------- grades (common views; endpoints may vary by version/tenant) ----------
+
+    async def list_grade_items(self, org_unit_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/grades/"))
+        if code >= 400:
+            raise RuntimeError(f"list_grade_items failed: {code} {data}")
+        return data  # may be list or dict depending on version
+
+    async def get_user_grades(self, org_unit_id: int, user_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/grades/values/user/{user_id}/"))
+        if code >= 400:
+            raise RuntimeError(f"get_user_grades failed: {code} {data}")
+        return data
