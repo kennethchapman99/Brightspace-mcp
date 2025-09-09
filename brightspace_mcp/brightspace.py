@@ -39,6 +39,8 @@ class BrightspaceClient:
         self.refresh_token = refresh_token
         self.lp_version = lp_version
         self.le_version = le_version
+        self.lp_versions: list[str] = [v.strip() for v in os.environ.get("BS_LP_VERSION_CANDIDATES", lp_version).split(",") if v.strip()]
+        self.le_versions: list[str] = [v.strip() for v in os.environ.get("BS_LE_VERSION_CANDIDATES", le_version).split(",") if v.strip()]
         self.timeout = timeout
         self.max_retries = max_retries
         self._access_token: Optional[str] = None
@@ -170,6 +172,79 @@ class BrightspaceClient:
             tail = "/" + tail
         return f"/d2l/api/{service}/{ver}{tail}"
 
+    async def _request_with_version_fallback(
+        self,
+        service: str,
+        method: str,
+        tail: str,
+        *,
+        versions: Optional[list[str]] = None,
+        params: Optional[Mapping[str, Any]] = None,
+        json: Optional[Json] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        expect_json: bool = True,
+    ) -> Tuple[int, Json, Mapping[str, str]]:
+        """
+        Try a list of versions for a service until one succeeds or non-version error occurs.
+        Treat 404/410 as version-mismatch and continue to next candidate.
+        """
+        candidates = list(versions or (self.lp_versions if service == "lp" else self.le_versions))
+        seen: set[str] = set()
+        # Ensure the default service version is tried first
+        preferred = self.lp_version if service == "lp" else self.le_version
+        if preferred not in candidates:
+            candidates.insert(0, preferred)
+        # Deduplicate while preserving order
+        uniq: list[str] = []
+        for v in candidates:
+            if v not in seen:
+                seen.add(v)
+                uniq.append(v)
+
+        last: Tuple[int, Json, Mapping[str, str]] | None = None
+        for ver in uniq:
+            code, data, hdrs = await self.request(
+                method,
+                self.build_path(service, tail, version=ver),
+                params=params,
+                json=json,
+                headers=headers,
+                expect_json=expect_json,
+            )
+            last = (code, data, hdrs)
+            if code in (404, 410):
+                continue
+            return code, data, hdrs
+        assert last is not None
+        return last
+
+    # Convenience helpers
+    async def le(
+        self,
+        method: str,
+        tail: str,
+        *,
+        versions: Optional[list[str]] = None,
+        params: Optional[Mapping[str, Any]] = None,
+        json: Optional[Json] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        expect_json: bool = True,
+    ) -> Tuple[int, Json, Mapping[str, str]]:
+        return await self._request_with_version_fallback("le", method, tail, versions=versions, params=params, json=json, headers=headers, expect_json=expect_json)
+
+    async def lp(
+        self,
+        method: str,
+        tail: str,
+        *,
+        versions: Optional[list[str]] = None,
+        params: Optional[Mapping[str, Any]] = None,
+        json: Optional[Json] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        expect_json: bool = True,
+    ) -> Tuple[int, Json, Mapping[str, str]]:
+        return await self._request_with_version_fallback("lp", method, tail, versions=versions, params=params, json=json, headers=headers, expect_json=expect_json)
+
     async def paginate_bookmark(
         self,
         path: str,
@@ -227,7 +302,7 @@ class BrightspaceClient:
     # ---------- opinionated wrappers (safe, tested routes) ----------
 
     async def whoami(self) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("lp", "/users/whoami"))
+        code, data, _ = await self.lp("GET", "/users/whoami")
         if code >= 400:
             raise RuntimeError(f"whoami failed: {code} {data}")
         assert isinstance(data, dict)
@@ -237,7 +312,7 @@ class BrightspaceClient:
         params: Dict[str, Any] = {"pageSize": page_size}
         if bookmark:
             params["bookmark"] = bookmark
-        code, data, _ = await self.request("GET", self.build_path("lp", "/courses/"), params=params)
+        code, data, _ = await self.lp("GET", "/courses/", params=params)
         if code >= 400:
             raise RuntimeError(f"list_courses failed: {code} {data}")
         assert isinstance(data, dict)
@@ -245,7 +320,7 @@ class BrightspaceClient:
 
     async def create_announcement(self, org_unit_id: int, title: str, html: str) -> Dict[str, Any]:
         payload = {"Title": title, "IsPublished": True, "Body": {"Content": html, "Type": "Html"}}
-        code, data, _ = await self.request("POST", self.build_path("le", f"/{org_unit_id}/news/"), json=payload)
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/news/", json=payload)
         if code >= 400:
             raise RuntimeError(f"create_announcement failed: {code} {data}")
         assert isinstance(data, dict)
@@ -266,7 +341,7 @@ class BrightspaceClient:
             params["orgUnitTypeId"] = org_unit_type_id
         if search:
             params["search"] = search
-        code, data, _ = await self.request("GET", self.build_path("lp", "/orgstructure/"), params=params)
+        code, data, _ = await self.lp("GET", "/orgstructure/", params=params)
         if code >= 400:
             raise RuntimeError(f"list_org_units failed: {code} {data}")
         assert isinstance(data, dict)
@@ -287,14 +362,14 @@ class BrightspaceClient:
             params["searchTerm"] = search_term
         if org_unit_id is not None:
             params["orgUnitId"] = org_unit_id
-        code, data, _ = await self.request("GET", self.build_path("lp", "/users/"), params=params)
+        code, data, _ = await self.lp("GET", "/users/", params=params)
         if code >= 400:
             raise RuntimeError(f"list_users failed: {code} {data}")
         assert isinstance(data, dict)
         return data
 
     async def get_user(self, user_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("lp", f"/users/{user_id}"))
+        code, data, _ = await self.lp("GET", f"/users/{user_id}")
         if code >= 400:
             raise RuntimeError(f"get_user failed: {code} {data}")
         assert isinstance(data, dict)
@@ -304,7 +379,7 @@ class BrightspaceClient:
         params: Dict[str, Any] = {"pageSize": page_size}
         if bookmark:
             params["bookmark"] = bookmark
-        code, data, _ = await self.request("GET", self.build_path("lp", "/enrollments/myenrollments/"), params=params)
+        code, data, _ = await self.lp("GET", "/enrollments/myenrollments/", params=params)
         if code >= 400:
             raise RuntimeError(f"my_enrollments failed: {code} {data}")
         assert isinstance(data, dict)
@@ -314,14 +389,14 @@ class BrightspaceClient:
         params: Dict[str, Any] = {"pageSize": page_size}
         if bookmark:
             params["bookmark"] = bookmark
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/news/"), params=params)
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/news/", params=params)
         if code >= 400:
             raise RuntimeError(f"list_announcements failed: {code} {data}")
         assert isinstance(data, dict)
         return data
 
     async def get_content_toc(self, org_unit_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/content/toc"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/content/toc")
         if code >= 400:
             raise RuntimeError(f"get_content_toc failed: {code} {data}")
         assert isinstance(data, dict)
@@ -330,14 +405,14 @@ class BrightspaceClient:
     # ---------- discussions ----------
 
     async def list_discussion_forums(self, org_unit_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/discussions/forums/"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/discussions/forums/")
         if code >= 400:
             raise RuntimeError(f"list_discussion_forums failed: {code} {data}")
         assert isinstance(data, (list, dict))
         return data  # API may return list
 
     async def list_discussion_topics(self, org_unit_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/discussions/topics/"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/discussions/topics/")
         if code >= 400:
             raise RuntimeError(f"list_discussion_topics failed: {code} {data}")
         assert isinstance(data, (list, dict))
@@ -349,14 +424,14 @@ class BrightspaceClient:
         params: Dict[str, Any] = {"pageSize": page_size}
         if bookmark:
             params["bookmark"] = bookmark
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/quizzes/quizzes/"), params=params)
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/quizzes/quizzes/", params=params)
         if code >= 400:
             raise RuntimeError(f"list_quizzes failed: {code} {data}")
         assert isinstance(data, dict)
         return data
 
     async def get_quiz(self, org_unit_id: int, quiz_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/quizzes/quizzes/{quiz_id}"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/quizzes/quizzes/{quiz_id}")
         if code >= 400:
             raise RuntimeError(f"get_quiz failed: {code} {data}")
         assert isinstance(data, dict)
@@ -365,7 +440,7 @@ class BrightspaceClient:
     # ---------- content topic files ----------
 
     async def get_content_topic(self, org_unit_id: int, topic_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/content/topics/{topic_id}"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/content/topics/{topic_id}")
         if code >= 400:
             raise RuntimeError(f"get_content_topic failed: {code} {data}")
         assert isinstance(data, dict)
@@ -377,13 +452,44 @@ class BrightspaceClient:
     # ---------- grades (common views; endpoints may vary by version/tenant) ----------
 
     async def list_grade_items(self, org_unit_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/grades/"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/grades/")
         if code >= 400:
             raise RuntimeError(f"list_grade_items failed: {code} {data}")
         return data  # may be list or dict depending on version
 
     async def get_user_grades(self, org_unit_id: int, user_id: int) -> Dict[str, Any]:
-        code, data, _ = await self.request("GET", self.build_path("le", f"/{org_unit_id}/grades/values/user/{user_id}/"))
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/grades/values/user/{user_id}/")
         if code >= 400:
             raise RuntimeError(f"get_user_grades failed: {code} {data}")
+        return data
+
+    # ---------- write helpers (raw bodies) ----------
+
+    async def create_discussion_forum(self, org_unit_id: int, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/discussions/forums/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_discussion_forum failed: {code} {data}")
+        assert isinstance(data, (dict, list, str))
+        return data
+
+    async def create_discussion_topic(self, org_unit_id: int, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/discussions/topics/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_discussion_topic failed: {code} {data}")
+        assert isinstance(data, (dict, list, str))
+        return data
+
+    async def create_grade_item(self, org_unit_id: int, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/grades/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_grade_item failed: {code} {data}")
+        return data
+
+    async def upsert_user_grade_value(self, org_unit_id: int, user_id: int, body: Json, method: str = "PUT") -> Dict[str, Any]:
+        method = method.upper()
+        if method not in ("PUT", "POST"):
+            raise ValueError("method must be PUT or POST")
+        code, data, _ = await self.le(method, f"/{org_unit_id}/grades/values/user/{user_id}/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"upsert_user_grade_value failed: {code} {data}")
         return data

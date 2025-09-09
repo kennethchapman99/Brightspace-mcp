@@ -252,6 +252,80 @@ async def bs_get_user_grades(org_unit_id: int, user_id: int) -> Dict[str, Any]:
     return await bs.get_user_grades(org_unit_id, user_id)
 
 
+# ---------------------- Version-aware helpers ----------------------
+
+@mcp.tool(
+    name="bs.le_call",
+    description=(
+        "Version-aware LE call with fallback. Args: method, tail (e.g. '/{ou}/grades/'), "
+        "optional params, body, headers, versions (list of strings)."
+    ),
+)
+async def bs_le_call(
+    method: str,
+    tail: str,
+    params: Dict[str, Any] | None = None,
+    body: Dict[str, Any] | None = None,
+    headers: Dict[str, str] | None = None,
+    versions: list[str] | None = None,
+) -> Dict[str, Any]:
+    code, data, hdrs = await bs.le(method, tail, params=params, json=body, headers=headers, versions=versions)
+    return {"status": code, "data": data, "headers": dict(hdrs)}
+
+
+@mcp.tool(
+    name="bs.lp_call",
+    description=(
+        "Version-aware LP call with fallback. Args: method, tail (e.g. '/users/whoami'), "
+        "optional params, body, headers, versions (list of strings)."
+    ),
+)
+async def bs_lp_call(
+    method: str,
+    tail: str,
+    params: Dict[str, Any] | None = None,
+    body: Dict[str, Any] | None = None,
+    headers: Dict[str, str] | None = None,
+    versions: list[str] | None = None,
+) -> Dict[str, Any]:
+    code, data, hdrs = await bs.lp(method, tail, params=params, json=body, headers=headers, versions=versions)
+    return {"status": code, "data": data, "headers": dict(hdrs)}
+
+
+# ---------------------- Create/Update (raw bodies) ----------------------
+
+@mcp.tool(
+    name="bs.create_discussion_forum",
+    description="Create a discussion forum (raw body). Args: org_unit_id, body.",
+)
+async def bs_create_discussion_forum(org_unit_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_discussion_forum(org_unit_id, body)
+
+
+@mcp.tool(
+    name="bs.create_discussion_topic",
+    description="Create a discussion topic (raw body). Args: org_unit_id, body.",
+)
+async def bs_create_discussion_topic(org_unit_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_discussion_topic(org_unit_id, body)
+
+
+@mcp.tool(
+    name="bs.create_grade_item",
+    description="Create a grade item (raw body). Args: org_unit_id, body.",
+)
+async def bs_create_grade_item(org_unit_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_grade_item(org_unit_id, body)
+
+
+@mcp.tool(
+    name="bs.upsert_user_grade_value",
+    description="Create or update a user's grade value. Args: org_unit_id, user_id, body, method=PUT|POST.",
+)
+async def bs_upsert_user_grade_value(org_unit_id: int, user_id: int, body: Dict[str, Any], method: str = "PUT") -> Dict[str, Any]:
+    return await bs.upsert_user_grade_value(org_unit_id, user_id, body, method=method)
+
+
 def cli() -> None:
     # FastMCP defaults to stdio. Blocking until the client disconnects.
     mcp.run()

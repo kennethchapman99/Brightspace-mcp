@@ -53,6 +53,8 @@ environment:
 - **BS_LP_VERSION** *(optional)* – Learning Platform API version.  Defaults to `1.46`.
 - **BS_LE_VERSION** *(optional)* – Learning Environment API version.  Defaults to `1.74`.
 - **BS_DEFAULT_VERSION** *(optional)* – Default API version used by the generic request tool.
+- **BS_LP_VERSION_CANDIDATES** *(optional)* – Comma-separated list of LP API versions to try (fallback order). Defaults to the LP default only.
+- **BS_LE_VERSION_CANDIDATES** *(optional)* – Comma-separated list of LE API versions to try (fallback order). Defaults to the LE default only.
 
 An example `.env` file is provided:
 
@@ -64,6 +66,9 @@ BS_REFRESH_TOKEN=your_refresh_token
 BS_LP_VERSION=1.46
 BS_LE_VERSION=1.74
 BS_DEFAULT_VERSION=1.46
+# Optional: try multiple versions if some endpoints vary on your tenant
+# BS_LP_VERSION_CANDIDATES=1.46,1.45
+# BS_LE_VERSION_CANDIDATES=1.74,1.72,1.70
 ```
 
 Copy `.env.example` to `.env` and populate the values before running the server.
@@ -175,6 +180,35 @@ Some LE endpoints (grades, discussions, quizzes, content) vary slightly by
 API version. If a wrapper returns an error for your tenant/version, use
 `bs.request` with an explicit path built via `bs.build_path('le', tail, version)`
 to target the exact route supported by your instance.
+
+You can also use the version-aware helpers that try multiple versions in order:
+
+```json
+{ "tool": "bs.le_call", "arguments": {
+  "method": "GET",
+  "tail": "/12345/grades/",
+  "versions": ["1.74", "1.72", "1.70"]
+} }
+
+{ "tool": "bs.lp_call", "arguments": {
+  "method": "GET",
+  "tail": "/users/whoami"
+} }
+```
+
+Alternatively, set `BS_LE_VERSION_CANDIDATES` and `BS_LP_VERSION_CANDIDATES` in
+`.env` to define global fallback orders.
+
+### Create/Update (raw bodies)
+
+Some creation/update routes have complex schemas. To keep this server flexible,
+we expose raw-body wrappers so you can supply the exact JSON expected by your
+tenant/version:
+
+- `bs.create_discussion_forum` – POST body to `/{ou}/discussions/forums/`
+- `bs.create_discussion_topic` – POST body to `/{ou}/discussions/topics/`
+- `bs.create_grade_item` – POST body to `/{ou}/grades/`
+- `bs.upsert_user_grade_value` – PUT/POST body to `/{ou}/grades/values/user/{userId}/`
 Brightspace MCP Reference Architecture
 Brightspace MCP Reference Architecture
 
