@@ -59,22 +59,63 @@ class BrightspaceClient:
     # ---------- auth ----------
 
     async def _refresh_access_token(self) -> str:
-        # Allow overriding token endpoint for tenants that don't use global auth
-        url = os.environ.get("BS_TOKEN_URL", "https://auth.brightspace.com/core/connect/token")
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            r = await client.post(
-                url,
-                data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": self.refresh_token,
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            r.raise_for_status()
-            self._access_token = r.json()["access_token"]
-            return self._access_token
+        # Try multiple token endpoints in order until success.
+        # Priority: BS_TOKEN_URL (if provided) -> tenant endpoints -> global BAS
+        candidates: list[str] = []
+        override = os.environ.get("BS_TOKEN_URL")
+        if override:
+            candidates.append(override)
+        # Tenant-local common endpoints
+        base = self.base_url.rstrip("/")
+        candidates.append(f"{base}/d2l/oauth2/token")
+        candidates.append(f"{base}/d2l/auth/api/token")
+        # Global BAS
+        candidates.append("https://auth.brightspace.com/core/connect/token")
+
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": self.refresh_token,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+        }
+
+        last_err: Optional[str] = None
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+            for url in candidates:
+                try:
+                    r = await client.post(url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+                except httpx.RequestError as e:
+                    last_err = f"request error: {e}"
+                    continue
+
+                ctype = r.headers.get("content-type", "")
+                body: Any
+                try:
+                    body = r.json() if "application/json" in ctype else r.text
+                except Exception:
+                    body = r.text
+
+                if r.status_code == 200 and isinstance(body, dict) and "access_token" in body:
+                    self._access_token = body["access_token"]
+                    return self._access_token
+
+                # 404/410 or redirect to error page → try next
+                if r.status_code in (404, 410, 302):
+                    last_err = f"{r.status_code} at {url}"
+                    continue
+
+                # 400 usually means invalid_grant/invalid_client for a valid endpoint
+                if r.status_code == 400:
+                    last_err = f"400 at {url}: {body}"
+                    break
+
+                # Any other error, keep note and try next
+                last_err = f"{r.status_code} at {url}: {body}"
+                continue
+
+        raise httpx.HTTPStatusError(
+            f"Failed to refresh token. Last error: {last_err}", request=None, response=None
+        )
 
     async def _auth_headers(self, extra: Optional[Mapping[str, str]] = None) -> Mapping[str, str]:
         if not self._access_token:
