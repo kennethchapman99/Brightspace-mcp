@@ -19,3 +19,10 @@ dependencies = [
 brightspace-mcp = "brightspace_mcp.main:cli"
 brightspace-mcp-selftest = "brightspace_mcp.selftest:cli"
 brightspace-mcp-cli = "brightspace_mcp.cli:cli"
+brightspace-mcp-smoke = "brightspace_mcp.smoke:cli"
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.0",
+  "pytest-asyncio>=0.23",
+]
