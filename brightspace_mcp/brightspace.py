@@ -59,7 +59,8 @@ class BrightspaceClient:
     # ---------- auth ----------
 
     async def _refresh_access_token(self) -> str:
-        url = "https://auth.brightspace.com/core/connect/token"
+        # Allow overriding token endpoint for tenants that don't use global auth
+        url = os.environ.get("BS_TOKEN_URL", "https://auth.brightspace.com/core/connect/token")
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             r = await client.post(
                 url,
