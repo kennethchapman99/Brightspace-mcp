@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+
+# Env
+.env
+
+# macOS
+.DS_Store
+
+# Packaging artifacts
+brightspace_mcp.egg-info/
+build/
+dist/
+

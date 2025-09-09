@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brightspace-mcp"
+version = "0.1.0"
+description = "Local MCP server for Brightspace (Valence) APIs"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp>=1.1.0",
+  "httpx>=0.27.0",
+  "pydantic>=2.7.0",
+  "python-dotenv>=1.0.1",
+  "anyio>=4.4.0"
+]
+
+[project.scripts]
+brightspace-mcp = "brightspace_mcp.main:cli"
+brightspace-mcp-selftest = "brightspace_mcp.selftest:cli"
+brightspace-mcp-cli = "brightspace_mcp.cli:cli"
