@@ -55,6 +55,7 @@ environment:
 - **BS_DEFAULT_VERSION** *(optional)* – Default API version used by the generic request tool.
 - **BS_LP_VERSION_CANDIDATES** *(optional)* – Comma-separated list of LP API versions to try (fallback order). Defaults to the LP default only.
 - **BS_LE_VERSION_CANDIDATES** *(optional)* – Comma-separated list of LE API versions to try (fallback order). Defaults to the LE default only.
+- **BS_TOKEN_URL** *(optional)* – Override OAuth token endpoint. Defaults to `https://auth.brightspace.com/core/connect/token`. For tenants not using global auth, set to `https://<your-host>/d2l/oauth2/token`.
 
 An example `.env` file is provided:
 
