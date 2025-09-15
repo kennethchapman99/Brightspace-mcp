@@ -6,6 +6,8 @@ __pycache__/
 
 # Env
 .env
+tokens.json
+.tokens.lock
 
 # macOS
 .DS_Store
@@ -14,4 +16,3 @@ __pycache__/
 brightspace_mcp.egg-info/
 build/
 dist/
-

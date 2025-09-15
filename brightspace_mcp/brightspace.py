@@ -535,3 +535,109 @@ class BrightspaceClient:
         if code >= 400:
             raise RuntimeError(f"upsert_user_grade_value failed: {code} {data}")
         return data
+
+    # ---------- enrollments (LP) ----------
+
+    async def list_course_enrollments(
+        self,
+        org_unit_id: int,
+        *,
+        page_size: int = 100,
+        bookmark: Optional[str] = None,
+        role_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {"pageSize": page_size}
+        if bookmark:
+            params["bookmark"] = bookmark
+        if role_id is not None:
+            params["roleId"] = role_id
+        code, data, _ = await self.lp("GET", f"/enrollments/orgUnits/{org_unit_id}/", params=params)
+        if code >= 400:
+            raise RuntimeError(f"list_course_enrollments failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def enroll_user(self, org_unit_id: int, user_id: int, role_id: int) -> Dict[str, Any]:
+        payload = {"OrgUnitId": org_unit_id, "UserId": user_id, "RoleId": role_id}
+        code, data, _ = await self.lp("POST", "/enrollments/", json=payload)
+        if code >= 400:
+            raise RuntimeError(f"enroll_user failed: {code} {data}")
+        assert isinstance(data, (dict, list, str))
+        return data
+
+    async def unenroll_user(self, org_unit_id: int, user_id: int) -> int:
+        code, data, _ = await self.lp("DELETE", f"/enrollments/users/{user_id}/orgUnits/{org_unit_id}")
+        if code >= 400:
+            raise RuntimeError(f"unenroll_user failed: {code} {data}")
+        return code
+
+    # ---------- assignments (Dropbox) ----------
+
+    async def list_assignments(self, org_unit_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/dropbox/folders/")
+        if code >= 400:
+            raise RuntimeError(f"list_assignments failed: {code} {data}")
+        assert isinstance(data, (list, dict))
+        return data
+
+    async def get_assignment(self, org_unit_id: int, folder_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.le("GET", f"/{org_unit_id}/dropbox/folders/{folder_id}")
+        if code >= 400:
+            raise RuntimeError(f"get_assignment failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def create_assignment(self, org_unit_id: int, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/dropbox/folders/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_assignment failed: {code} {data}")
+        assert isinstance(data, (dict, list, str))
+        return data
+
+    # ---------- courses (LP) ----------
+
+    async def get_course_offering(self, org_unit_id: int) -> Dict[str, Any]:
+        code, data, _ = await self.lp("GET", f"/courses/{org_unit_id}")
+        if code >= 400:
+            raise RuntimeError(f"get_course_offering failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def create_course_offering(self, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.lp("POST", "/courses/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_course_offering failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    # ---------- content management (LE, raw helpers) ----------
+
+    async def create_content_module(self, org_unit_id: int, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/content/modules/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_content_module failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def create_content_topic(self, org_unit_id: int, module_id: int, body: Json) -> Dict[str, Any]:
+        # POST to module structure to add a topic (link/file/HTML depends on body).
+        code, data, _ = await self.le("POST", f"/{org_unit_id}/content/modules/{module_id}/structure/", json=body)
+        if code >= 400:
+            raise RuntimeError(f"create_content_topic failed: {code} {data}")
+        assert isinstance(data, (dict, list, str))
+        return data
+
+    # ---------- announcements maintenance ----------
+
+    async def update_announcement(self, org_unit_id: int, news_id: int, body: Json) -> Dict[str, Any]:
+        code, data, _ = await self.le("PUT", f"/{org_unit_id}/news/{news_id}", json=body)
+        if code >= 400:
+            raise RuntimeError(f"update_announcement failed: {code} {data}")
+        assert isinstance(data, dict)
+        return data
+
+    async def delete_announcement(self, org_unit_id: int, news_id: int) -> int:
+        code, data, _ = await self.le("DELETE", f"/{org_unit_id}/news/{news_id}")
+        if code >= 400:
+            raise RuntimeError(f"delete_announcement failed: {code} {data}")
+        return code

@@ -326,6 +326,112 @@ async def bs_upsert_user_grade_value(org_unit_id: int, user_id: int, body: Dict[
     return await bs.upsert_user_grade_value(org_unit_id, user_id, body, method=method)
 
 
+# ---------------------- Enrollments ----------------------
+
+@mcp.tool(
+    name="bs.list_course_enrollments",
+    description=(
+        "List enrollments for a course. Args: org_unit_id, page_size=100, bookmark, role_id."
+    ),
+)
+async def bs_list_course_enrollments(
+    org_unit_id: int,
+    page_size: int = 100,
+    bookmark: str | None = None,
+    role_id: int | None = None,
+) -> Dict[str, Any]:
+    return await bs.list_course_enrollments(org_unit_id, page_size=page_size, bookmark=bookmark, role_id=role_id)
+
+
+@mcp.tool(
+    name="bs.enroll_user",
+    description="Enroll a user in a course. Args: org_unit_id, user_id, role_id.",
+)
+async def bs_enroll_user(org_unit_id: int, user_id: int, role_id: int) -> Dict[str, Any]:
+    return await bs.enroll_user(org_unit_id, user_id, role_id)
+
+
+@mcp.tool(
+    name="bs.unenroll_user",
+    description="Unenroll a user from a course. Args: org_unit_id, user_id. Returns status code.",
+)
+async def bs_unenroll_user(org_unit_id: int, user_id: int) -> Dict[str, Any]:
+    code = await bs.unenroll_user(org_unit_id, user_id)
+    return {"status": code}
+
+
+# ---------------------- Assignments (Dropbox) ----------------------
+
+@mcp.tool(name="bs.list_assignments", description="List assignment folders. Args: org_unit_id.")
+async def bs_list_assignments(org_unit_id: int) -> Dict[str, Any]:
+    return await bs.list_assignments(org_unit_id)
+
+
+@mcp.tool(name="bs.get_assignment", description="Get assignment folder. Args: org_unit_id, folder_id.")
+async def bs_get_assignment(org_unit_id: int, folder_id: int) -> Dict[str, Any]:
+    return await bs.get_assignment(org_unit_id, folder_id)
+
+
+@mcp.tool(
+    name="bs.create_assignment",
+    description="Create an assignment folder (raw body). Args: org_unit_id, body.",
+)
+async def bs_create_assignment(org_unit_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_assignment(org_unit_id, body)
+
+
+# ---------------------- Courses (LP) ----------------------
+
+@mcp.tool(name="bs.get_course_offering", description="Get course offering by Org Unit ID.")
+async def bs_get_course_offering(org_unit_id: int) -> Dict[str, Any]:
+    return await bs.get_course_offering(org_unit_id)
+
+
+@mcp.tool(
+    name="bs.create_course_offering",
+    description="Create a course offering (raw body). Args: body.",
+)
+async def bs_create_course_offering(body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_course_offering(body)
+
+
+# ---------------------- Content Management ----------------------
+
+@mcp.tool(
+    name="bs.create_content_module",
+    description="Create a content module. Args: org_unit_id, body.",
+)
+async def bs_create_content_module(org_unit_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_content_module(org_unit_id, body)
+
+
+@mcp.tool(
+    name="bs.create_content_topic",
+    description="Create a content topic under a module. Args: org_unit_id, module_id, body.",
+)
+async def bs_create_content_topic(org_unit_id: int, module_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.create_content_topic(org_unit_id, module_id, body)
+
+
+# ---------------------- Announcement Maintenance ----------------------
+
+@mcp.tool(
+    name="bs.update_announcement",
+    description="Update an announcement (raw body). Args: org_unit_id, news_id, body.",
+)
+async def bs_update_announcement(org_unit_id: int, news_id: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return await bs.update_announcement(org_unit_id, news_id, body)
+
+
+@mcp.tool(
+    name="bs.delete_announcement",
+    description="Delete an announcement. Args: org_unit_id, news_id. Returns status.",
+)
+async def bs_delete_announcement(org_unit_id: int, news_id: int) -> Dict[str, Any]:
+    status = await bs.delete_announcement(org_unit_id, news_id)
+    return {"status": status}
+
+
 def cli() -> None:
     # FastMCP defaults to stdio. Blocking until the client disconnects.
     mcp.run()
