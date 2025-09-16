@@ -100,10 +100,7 @@ Full details: see Brightspace-MCP.md.
 
 See CONTRIBUTING.md. Security policy in SECURITY.md.
 
-## License
-
-See LICENSE.
-	•	Demonstrate Integration: Show Anthropics (and other partners) that D2L can integrate with Claude via MCP, enabling Claude to fetch and manipulate Brightspace data and interact with other MCP partner tools.
+Demonstrate Integration: Show Anthropics (and other partners) that D2L can integrate with Claude via MCP, enabling Claude to fetch and manipulate Brightspace data and interact with other MCP partner tools.
 	•	Support Multiple Use Cases: Provide tools for admins, instructors, and students to automate or simplify common tasks (detailed in the next section).
 	•	Proper Architecture (Not just a Hack): Design the server following best practices (modularity, security, error handling, etc.) rather than a quick one-off script.
 	•	Deployable to AWS: Start with a local prototype, but design with cloud deployment in mind (AWS architecture for staging/production), including considerations for scalability, reliability, and maintainability.
