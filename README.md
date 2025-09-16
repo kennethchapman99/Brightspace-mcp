@@ -1,223 +1,108 @@
-# Brightspace MCP Server
-# Brightspace MCP Server
+# Brightspace MCP
 
-This package implements a local [MCP](https://github.com/fixie-ai/mcp) server that exposes
-Brightspace (Valence) APIs via a set of tools.  Running the server
-enables an autonomous agent to interact with your Brightspace instance
-through the MCP protocol.
+A Model Context Protocol (MCP) server for D2L Brightspace that exposes common LMS workflows as safe tools. Built for local use with Claude (stdio) and containerized for cloud environments.
 
-## Features
+## Highlights
 
-- Uses OAuth2 refresh tokens to manage authentication automatically.
-- Provides convenience methods for common operations:
-  - `bs.whoami` – Identify the current authenticated user.
-  - `bs.list_org_units` – List organizational units (e.g. courses, semesters).
-  - `bs.list_courses` – Filter and list course offerings (OrgUnitTypeId=3).
-  - `bs.list_users` – Search and paginate through users.
-  - `bs.get_user` – Retrieve a single user by ID.
-  - `bs.my_enrollments` – List enrollments for the current user.
-  - `bs.list_announcements` – List news items in a course.
-  - `bs.list_users` – Search and paginate through users.
-  - `bs.create_announcement` – Post news items in a course.
-  - `bs.list_discussion_forums` / `bs.list_discussion_topics` – Browse discussions.
-  - `bs.list_quizzes` / `bs.get_quiz` – List and fetch quizzes.
-  - `bs.get_content_topic` / `bs.download_content_topic_file_b64` – Inspect or download content topic files.
-  - `bs.list_grade_items` / `bs.get_user_grades` – Grade items and user grade values.
-- Includes a generic `bs.request` tool for arbitrary HTTP requests against
-  any Brightspace endpoint.
+- OAuth2 refresh-token auth with automatic refresh, 401 retry, and 429 backoff.
+- High-value tools for real workflows (whoami, courses, users, enrollments, announcements, content, assignments, quizzes, grades) + a generic API call.
+- Version-aware helpers (LP/LE) with fallback candidates.
+- Ready for Claude Desktop/Claude Code (stdio) and for containerized deployment.
+- Unit tests + CI; detailed enterprise guide in Brightspace-MCP.md.
 
-## Installation
+## Quick Start
 
-Install the package in a virtual environment using pip:
-
-```sh
+```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+cp .env.example .env  # fill BS_* values
+
+# Mint a refresh token locally (optional helper)
+python brightspace_mcp_launcher.py
+
+# Run the MCP server (stdio)
+brightspace-mcp --stdio
 ```
 
-The `-e` flag installs the package in editable mode so changes to the code
-are reflected immediately.
+Environment variables (see `.env.example`)
 
-## Configuration
+- `BS_BASE_URL`, `BS_CLIENT_ID`, `BS_CLIENT_SECRET`, `BS_REFRESH_TOKEN`
+- Optional versions: `BS_LP_VERSION`, `BS_LE_VERSION`, and `*_VERSION_CANDIDATES`
+- Optional `BS_TOKEN_URL` to pin a tenant-specific token endpoint
 
-The server expects several environment variables to be set.  You can
-configure these via a `.env` file in the project root or via your shell
-environment:
+## Connect to Claude
 
-- **BS_BASE_URL** – Base URL of your Brightspace instance (e.g. `https://d2l.example.com`).
-- **BS_CLIENT_ID** – OAuth2 client ID from your Brightspace registration.
-- **BS_CLIENT_SECRET** – OAuth2 client secret.
-- **BS_REFRESH_TOKEN** – Refresh token obtained through the Brightspace
-  OAuth2 flow.
-- **BS_LP_VERSION** *(optional)* – Learning Platform API version.  Defaults to `1.46`.
-- **BS_LE_VERSION** *(optional)* – Learning Environment API version.  Defaults to `1.74`.
-- **BS_DEFAULT_VERSION** *(optional)* – Default API version used by the generic request tool.
-- **BS_LP_VERSION_CANDIDATES** *(optional)* – Comma-separated list of LP API versions to try (fallback order). Defaults to the LP default only.
-- **BS_LE_VERSION_CANDIDATES** *(optional)* – Comma-separated list of LE API versions to try (fallback order). Defaults to the LE default only.
-- **BS_TOKEN_URL** *(optional)* – Override OAuth token endpoint. Defaults to `https://auth.brightspace.com/core/connect/token`. For tenants not using global auth, set to `https://<your-host>/d2l/oauth2/token`.
-
-An example `.env` file is provided:
-
-```env
-BS_BASE_URL=https://your.brightspace.host
-BS_CLIENT_ID=your_client_id
-BS_CLIENT_SECRET=your_client_secret
-BS_REFRESH_TOKEN=your_refresh_token
-BS_LP_VERSION=1.46
-BS_LE_VERSION=1.74
-BS_DEFAULT_VERSION=1.46
-# Optional: try multiple versions if some endpoints vary on your tenant
-# BS_LP_VERSION_CANDIDATES=1.46,1.45
-# BS_LE_VERSION_CANDIDATES=1.74,1.72,1.70
-```
-
-Copy `.env.example` to `.env` and populate the values before running the server.
-
-## Running the Server
-
-Run the server using the script exposed in the package.  Ensure your
-configuration is loaded via `.env` or the environment.
-
-```sh
-brightspace-mcp
-# or equivalently
-python -m brightspace_mcp.main
-```
-
-The server communicates over standard input and output as required by
-MCP.  Tools are invoked by sending JSON messages identifying the tool
-and arguments (e.g. `{ "tool": "bs.whoami", "arguments": {} }`).
-
-## Direct CLI (no MCP client)
-
-Install the package (editable or normal), set `.env`, then use the direct CLI
-to exercise core functions:
-
-```sh
-brightspace-mcp-cli whoami
-brightspace-mcp-cli list-courses --page-size 5
-brightspace-mcp-cli create-announcement 12345 "Welcome" "<p>Hello!</p>"
-brightspace-mcp-cli api-call GET /d2l/api/lp/1.46/users/ --params '{"pageSize":10}'
-```
-
-## Quick Self-Test (no MCP client needed)
-
-If you just want to verify your credentials and connectivity before wiring
-this into an MCP client, run the built-in self-test:
-
-```sh
-brightspace-mcp-selftest
-# or
-python -m brightspace_mcp.selftest
-```
-
-This will:
-- Refresh an access token using `BS_REFRESH_TOKEN`
-- Call `whoami` and print the authenticated user
-- Fetch the first 5 courses and print the response
-
-If anything fails (missing env vars, auth errors), you’ll see a concise error.
-
-## Examples
-
-Below are example MCP requests encoded as JSON.  Each request is a
-single object with a `tool` field and an `arguments` field:
+- Claude Desktop: Edit `claude_desktop_config.json` and add:
 
 ```json
-{ "tool": "bs.whoami", "arguments": {} }
-
-{ "tool": "bs.list_courses", "arguments": { "page_size": 50 } }
-
-{ "tool": "bs.create_announcement", "arguments": {
-  "org_unit_id": 12345,
-  "title": "Welcome!",
-  "html": "<p>Hello students, welcome to the course.</p>"
-} }
-
-{ "tool": "bs.request", "arguments": {
-  "method": "GET",
-  "path": "/d2l/api/lp/1.46/users/",
-  "params": { "pageSize": 10 }
-} }
-
-{ "tool": "bs.list_org_units", "arguments": { "org_unit_type_id": 3, "page_size": 50 } }
-
-{ "tool": "bs.list_users", "arguments": { "search_term": "smith", "page_size": 25 } }
-
-{ "tool": "bs.get_user", "arguments": { "user_id": 1234 } }
-
-{ "tool": "bs.my_enrollments", "arguments": { "page_size": 50 } }
-
-{ "tool": "bs.list_announcements", "arguments": { "org_unit_id": 12345, "page_size": 20 } }
-
-{ "tool": "bs.get_content_toc", "arguments": { "org_unit_id": 12345 } }
-
-{ "tool": "bs.list_discussion_forums", "arguments": { "org_unit_id": 12345 } }
-
-{ "tool": "bs.list_discussion_topics", "arguments": { "org_unit_id": 12345 } }
-
-{ "tool": "bs.list_quizzes", "arguments": { "org_unit_id": 12345, "page_size": 50 } }
-
-{ "tool": "bs.get_quiz", "arguments": { "org_unit_id": 12345, "quiz_id": 6789 } }
-
-{ "tool": "bs.get_content_topic", "arguments": { "org_unit_id": 12345, "topic_id": 555 } }
-
-{ "tool": "bs.download_content_topic_file_b64", "arguments": { "org_unit_id": 12345, "topic_id": 555 } }
-
-{ "tool": "bs.list_grade_items", "arguments": { "org_unit_id": 12345 } }
-
-{ "tool": "bs.get_user_grades", "arguments": { "org_unit_id": 12345, "user_id": 111 } }
+{
+  "mcpServers": {
+    "brightspace": {
+      "command": "/abs/path/to/repo/.venv/bin/brightspace-mcp",
+      "args": ["--stdio"],
+      "env": {
+        "BS_BASE_URL": "https://your.brightspace.host",
+        "BS_CLIENT_ID": "...",
+        "BS_CLIENT_SECRET": "...",
+        "BS_REFRESH_TOKEN": "..."
+      }
+    }
+  }
+}
 ```
 
-If you need a wrapper around additional endpoints, such as grade or
-content operations, consider adding more convenience methods to
-`brightspace_mcp.brightspace.BrightspaceClient` and corresponding tools
-in `brightspace_mcp.main`.
+- Claude Code (VS Code): Add a custom MCP server with the same command/args/env.
 
-Notes on API Versions
+## Docker
 
-Some LE endpoints (grades, discussions, quizzes, content) vary slightly by
-API version. If a wrapper returns an error for your tenant/version, use
-`bs.request` with an explicit path built via `bs.build_path('le', tail, version)`
-to target the exact route supported by your instance.
-
-You can also use the version-aware helpers that try multiple versions in order:
-
-```json
-{ "tool": "bs.le_call", "arguments": {
-  "method": "GET",
-  "tail": "/12345/grades/",
-  "versions": ["1.74", "1.72", "1.70"]
-} }
-
-{ "tool": "bs.lp_call", "arguments": {
-  "method": "GET",
-  "tail": "/users/whoami"
-} }
+```bash
+docker build -t brightspace-mcp:latest .
+docker run --rm \
+  -e BS_BASE_URL=... -e BS_CLIENT_ID=... \
+  -e BS_CLIENT_SECRET=... -e BS_REFRESH_TOKEN=... \
+  brightspace-mcp:latest
 ```
 
-Alternatively, set `BS_LE_VERSION_CANDIDATES` and `BS_LP_VERSION_CANDIDATES` in
-`.env` to define global fallback orders.
+## AWS (Overview)
 
-### Create/Update (raw bodies)
+- Run the container on ECS Fargate. Inject `BS_*` via AWS Secrets Manager. Keep service internal behind a gateway that speaks MCP or add an HTTP shim if needed.
+- See Brightspace-MCP.md for enterprise guidance (security, scaling, observability, SLOs).
 
-Some creation/update routes have complex schemas. To keep this server flexible,
-we expose raw-body wrappers so you can supply the exact JSON expected by your
-tenant/version:
+## Testing
 
-- `bs.create_discussion_forum` – POST body to `/{ou}/discussions/forums/`
-- `bs.create_discussion_topic` – POST body to `/{ou}/discussions/topics/`
-- `bs.create_grade_item` – POST body to `/{ou}/grades/`
-- `bs.upsert_user_grade_value` – PUT/POST body to `/{ou}/grades/values/user/{userId}/`
-Brightspace MCP Reference Architecture
-Brightspace MCP Reference Architecture
+```bash
+pip install -e .[test]
+pytest -q      # unit tests
+```
 
-Overview
+Live integration tests are opt-in and require `BS_*` env vars.
 
-The Brightspace MCP Server is a dedicated service that connects D2L Brightspace (the LMS) with AI models (like Anthropic’s Claude) using the Model Context Protocol (MCP). MCP is an open standard that allows AI assistants to securely interface with external systems and data sources via defined tools/functions ￼ ￼. In essence, our Brightspace MCP acts as a bridge (or facade) between Claude and Brightspace (and other related data sources), exposing Brightspace’s capabilities (and relevant external data) to the AI in a controlled, standardized way. This approach avoids ad-hoc “vibe-coded” scripts and instead follows a structured architecture, making the system more maintainable and scalable ￼.
+## Supported Tools (summary)
 
-Key Goals:
+- Generic: `bs.api_call`, `bs.request`, `bs.paginate`, `bs.build_path`, `bs.upload_multipart`, `bs.download_b64`
+- Identity/Discovery: `bs.whoami`, `bs.list_org_units`, `bs.list_courses`, `bs.list_users`, `bs.get_user`
+- Enrollments: `bs.list_course_enrollments`, `bs.enroll_user`, `bs.unenroll_user`
+- Announcements: `bs.list_announcements`, `bs.create_announcement`, `bs.update_announcement`, `bs.delete_announcement`
+- Content: `bs.get_content_toc`, `bs.get_content_topic`, `bs.download_content_topic_file_b64`, `bs.create_content_module`, `bs.create_content_topic`
+- Assignments (Dropbox): `bs.list_assignments`, `bs.get_assignment`, `bs.create_assignment`
+- Quizzes: `bs.list_quizzes`, `bs.get_quiz`
+- Grades: `bs.list_grade_items`, `bs.get_user_grades`, `bs.create_grade_item`, `bs.upsert_user_grade_value`
+
+Full details: see Brightspace-MCP.md.
+
+## Security
+
+- Do not commit secrets. `.gitignore` excludes `.env`, `tokens.json`, `.tokens.lock`.
+- Store secrets in AWS Secrets Manager for cloud deployments. Rotate regularly.
+
+## Contributing
+
+See CONTRIBUTING.md. Security policy in SECURITY.md.
+
+## License
+
+See LICENSE.
 	•	Demonstrate Integration: Show Anthropics (and other partners) that D2L can integrate with Claude via MCP, enabling Claude to fetch and manipulate Brightspace data and interact with other MCP partner tools.
 	•	Support Multiple Use Cases: Provide tools for admins, instructors, and students to automate or simplify common tasks (detailed in the next section).
 	•	Proper Architecture (Not just a Hack): Design the server following best practices (modularity, security, error handling, etc.) rather than a quick one-off script.
